@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+
+<meta charset="UTF-8">
+
+<meta name="viewport"
+content="width=device-width, initial-scale=1.0">
+
+<title>영화 추천 시스템</title>
+
+<script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+
+<style>
+
+body{
+  font-family:Arial;
+  background:#f2f2f2;
+  margin:0;
+  padding:30px;
+}
+
+.container{
+
+  max-width:1200px;
+
+  margin:auto;
+
+  background:white;
+
+  padding:30px;
+
+  border-radius:20px;
+
+  box-shadow:0 0 10px rgba(0,0,0,0.1);
+
+}
+
+h1{
+  text-align:center;
+}
+
+p{
+  text-align:center;
+}
+
+.slider-box{
+  margin:25px 0;
+}
+
+label{
+  font-weight:bold;
+}
+
+input[type=range]{
+  width:100%;
+}
+
+button{
+
+  width:100%;
+
+  padding:15px;
+
+  border:none;
+
+  border-radius:12px;
+
+  background:black;
+
+  color:white;
+
+  font-size:18px;
+
+  cursor:pointer;
+
+  margin-top:20px;
+
+}
+
+.card{
+
+  background:#fafafa;
+
+  padding:20px;
+
+  border-radius:15px;
+
+  margin-top:20px;
+
+}
+
+.movie-box{
+
+  background:white;
+
+  padding:15px;
+
+  margin-top:15px;
+
+  border-radius:12px;
+
+  box-shadow:0 0 5px rgba(0,0,0,0.1);
+
+}
+
+#graph{
+
+  width:100%;
+
+  height:800px;
+
+  margin-top:40px;
+
+  border-radius:20px;
+
+}
+
+</style>
+
+</head>
+
+<body>
+
+<div class="container">
+
+<h1>🎬 AI 영화 추천 시스템</h1>
+
+<p>
+
+코사인 유사도 + 유클리드 거리 기반  
+3차원 영화 추천 알고리즘
+
+</p>
+
+
+
+<div class="slider-box">
+
+<label>액션</label>
+
+<input
+type="range"
+id="action"
+min="0"
+max="5"
+step="0.1"
+value="2.5">
+
+</div>
+
+
+
+<div class="slider-box">
+
+<label>감성</label>
+
+<input
+type="range"
+id="emotion"
+min="0"
+max="5"
+step="0.1"
+value="2.5">
+
+</div>
+
+
+
+<div class="slider-box">
+
+<label>코미디</label>
+
+<input
+type="range"
+id="comedy"
+min="0"
+max="5"
+step="0.1"
+value="2.5">
+
+</div>
+
+
+
+<button onclick="recommendMovie()">
+
+추천 받기
+
+</button>
+
+
+
+<div id="result"></div>
+
+<div id="graph"></div>
+
+</div>
+
+
+
+<script>
+
+
+// 영화 데이터
+
+const movies = [
+
+{name:"만약에 우리", action:0, emotion:4.5, comedy:3},
+{name:"왕과 사는 남자", action:2, emotion:5, comedy:1.5},
+{name:"기생충", action:1, emotion:3.5, comedy:3},
+{name:"범죄도시", action:5, emotion:1, comedy:4},
+{name:"인터스텔라", action:0, emotion:3, comedy:2},
+{name:"신과 함께-죄와 벌", action:3, emotion:2, comedy:2},
+{name:"택시운전사", action:1, emotion:4, comedy:3.5},
+{name:"극한직업", action:3.5, emotion:0.5, comedy:5},
+{name:"국제시장", action:0, emotion:5, comedy:2},
+{name:"아바타", action:1, emotion:4, comedy:3},
+{name:"라라랜드", action:0, emotion:4, comedy:2},
+{name:"어벤져스: 엔드게임", action:5, emotion:0.5, comedy:1},
+{name:"해리포터와 마법사의 돌", action:2, emotion:4, comedy:3},
+{name:"백두산", action:2, emotion:4, comedy:3},
+{name:"부산행", action:4, emotion:3, comedy:1},
+{name:"코코", action:0, emotion:5, comedy:3},
+{name:"겨울왕국2", action:1, emotion:4, comedy:3.5},
+{name:"말모이", action:0, emotion:5, comedy:2},
+{name:"서울의 봄", action:4, emotion:3.5, comedy:0},
+{name:"파묘", action:3.5, emotion:4, comedy:0.5},
+{name:"모아나", action:0, emotion:3.5, comedy:3},
+{name:"인사이드 아웃", action:0, emotion:5, comedy:3.7},
+{name:"너의 이름은", action:0, emotion:4.5, comedy:2.3},
+{name:"드래곤 길들이기", action:3, emotion:3.5, comedy:2.8},
+{name:"귀멸의 칼날", action:4.5, emotion:4, comedy:1.2},
+{name:"탑건: 매버릭", action:5, emotion:2.5, comedy:2},
+{name:"아이언맨", action:5, emotion:4, comedy:4},
+{name:"휴민트", action:0, emotion:4, comedy:2},
+{name:"살목지", action:1, emotion:1, comedy:1},
+{name:"악마는 프라다를 입는다", action:0.1, emotion:4, comedy:3}
+
+];
+
+
+
+
+// 코사인 유사도
+
+function cosineSimilarity(user, movie){
+
+  const dot =
+
+    user.action * movie.action +
+
+    user.emotion * movie.emotion +
+
+    user.comedy * movie.comedy;
+
+
+
+  const userMagnitude = Math.sqrt(
+
+    user.action**2 +
+
+    user.emotion**2 +
+
+    user.comedy**2
+
+  );
+
+
+
+  const movieMagnitude = Math.sqrt(
+
+    movie.action**2 +
+
+    movie.emotion**2 +
+
+    movie.comedy**2
+
+  );
+
+
+
+  return dot / (userMagnitude * movieMagnitude);
+
+}
+
+
+
+
+// 유클리드 거리
+
+function euclideanDistance(user, movie){
+
+  return Math.sqrt(
+
+    (user.action - movie.action)**2 +
+
+    (user.emotion - movie.emotion)**2 +
+
+    (user.comedy - movie.comedy)**2
+
+  );
+
+}
+
+
+
+
+// 자카드 유사도
+
+function jaccardSimilarity(user, movie){
+
+  const userSet = [
+
+    Math.round(user.action),
+
+    Math.round(user.emotion),
+
+    Math.round(user.comedy)
+
+  ];
+
+
+
+  const movieSet = [
+
+    Math.round(movie.action),
+
+    Math.round(movie.emotion),
+
+    Math.round(movie.comedy)
+
+  ];
+
+
+
+  const intersection =
+
+    userSet.filter(v => movieSet.includes(v)).length;
+
+
+
+  const union =
+
+    new Set([...userSet, ...movieSet]).size;
+
+
+
+  return intersection / union;
+
+}
+
+
+
+
+// 추천 함수
+
+function recommendMovie(){
+
+
+  const user = {
+
+    action:Number(
+      document.getElementById("action").value
+    ),
+
+    emotion:Number(
+      document.getElementById("emotion").value
+    ),
+
+    comedy:Number(
+      document.getElementById("comedy").value
+    )
+
+  };
+
+
+
+  movies.forEach(movie => {
+
+
+    movie.cosine =
+      cosineSimilarity(user, movie);
+
+
+
+    movie.euclidean =
+      euclideanDistance(user, movie);
+
+
+
+    movie.jaccard =
+      jaccardSimilarity(user, movie);
+
+
+
+
+    // 최종 추천 점수
+
+    movie.score =
+
+      (movie.cosine * 0.7)
+
+      +
+
+      ((1 / (1 + movie.euclidean)) * 0.3);
+
+  });
+
+
+
+
+  // 최종 점수 기준 정렬
+
+  movies.sort((a,b)=>
+
+    b.score - a.score
+
+  );
+
+
+
+
+  const topMovies = movies.slice(0,3);
+
+
+
+
+  let html = `
+
+  <div class="card">
+
+  <h2>🧠 사용자 벡터</h2>
+
+  <p>
+
+  (${user.action},
+
+  ${user.emotion},
+
+  ${user.comedy})
+
+  </p>
+
+  </div>
+
+
+
+  <div class="card">
+
+  <h2>🎬 추천 영화 TOP3</h2>
+
+  `;
+
+
+
+
+  topMovies.forEach((movie,index)=>{
+
+    html += `
+
+    <div class="movie-box">
+
+    <h3>
+
+    ${index+1}위
+
+    —
+
+    ${movie.name}
+
+    </h3>
+
+
+
+    <p>
+
+    ⭐ 최종 추천 점수:
+
+    ${(movie.score*100).toFixed(1)}
+
+    </p>
+
+
+
+    <p>
+
+    코사인 유사도:
+
+    ${(movie.cosine*100).toFixed(1)}%
+
+    </p>
+
+
+
+    <p>
+
+    유클리드 거리:
+
+    ${movie.euclidean.toFixed(2)}
+
+    </p>
+
+
+
+    <p>
+
+    자카드 유사도:
+
+    ${(movie.jaccard*100).toFixed(1)}%
+
+    </p>
+
+    </div>
+
+    `;
+
+  });
+
+
+
+
+  html += `</div>`;
+
+
+
+  document.getElementById("result")
+  .innerHTML = html;
+
+
+
+
+  drawGraph(user, topMovies);
+
+}
+
+
+
+
+// 그래프 함수
+
+function drawGraph(user, topMovies){
+
+
+  const movieTrace = {
+
+    x:movies.map(m=>m.action),
+
+    y:movies.map(m=>m.emotion),
+
+    z:movies.map(m=>m.comedy),
+
+    text:movies.map(m=>m.name),
+
+    mode:'markers+text',
+
+    type:'scatter3d',
+
+    marker:{
+
+      size:5,
+
+      color:'blue'
+
+    },
+
+    textposition:'top center',
+
+    name:'전체 영화'
+
+  };
+
+
+
+
+  const recommendTrace = {
+
+    x:topMovies.map(m=>m.action),
+
+    y:topMovies.map(m=>m.emotion),
+
+    z:topMovies.map(m=>m.comedy),
+
+    text:topMovies.map(m=>"⭐ "+m.name),
+
+    mode:'markers+text',
+
+    type:'scatter3d',
+
+    marker:{
+
+      size:10,
+
+      color:'gold'
+
+    },
+
+    textposition:'top center',
+
+    name:'추천 영화'
+
+  };
+
+
+
+
+  const userTrace = {
+
+    x:[user.action],
+
+    y:[user.emotion],
+
+    z:[user.comedy],
+
+    text:['사용자'],
+
+    mode:'markers+text',
+
+    type:'scatter3d',
+
+    marker:{
+
+      size:12,
+
+      color:'red'
+
+    },
+
+    textposition:'top center',
+
+    name:'사용자'
+
+  };
+
+
+
+
+  Plotly.newPlot(
+
+    'graph',
+
+    [
+
+      movieTrace,
+
+      recommendTrace,
+
+      userTrace
+
+    ],
+
+    {
+
+      title:'🎬 영화 취향 3차원 공간',
+
+      scene:{
+
+        xaxis:{title:'액션'},
+
+        yaxis:{title:'감성'},
+
+        zaxis:{title:'코미디'},
+
+        aspectmode:'cube',
+
+        camera:{
+
+          eye:{
+            x:1.5,
+            y:1.5,
+            z:1.2
+          }
+
+        }
+
+      }
+
+    },
+
+    {
+
+      responsive:true,
+
+      scrollZoom:true,
+
+      displayModeBar:true,
+
+      displaylogo:false,
+
+      doubleClick:'reset',
+
+      modeBarButtonsToAdd:[
+
+        'zoom3d',
+
+        'pan3d',
+
+        'orbitRotation',
+
+        'tableRotation',
+
+        'resetCameraDefault3d'
+
+      ]
+
+    }
+
+  );
+
+}
+
+
+
+
+// 초기 그래프
+
+drawGraph(
+
+  {
+
+    action:2.5,
+
+    emotion:2.5,
+
+    comedy:2.5
+
+  },
+
+  []
+
+);
+
+
+</script>
+
+</body>
+
+</html>
